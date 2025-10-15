@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Code Review Assistant</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-indigo-50 to-blue-100 min-h-screen flex items-center justify-center">
+
+  <div class="bg-white rounded-2xl shadow-lg w-full max-w-3xl p-8">
+    <h1 class="text-3xl font-bold text-center mb-6 text-indigo-600 flex items-center justify-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+      </svg>
+      Code Review Assistant
+    </h1>
+
+    <!-- Language selection -->
+    <div class="mb-4">
+      <label for="language" class="block text-sm font-medium text-gray-700 mb-1">Programming Language</label>
+      <select id="language" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+        <option>JavaScript</option>
+        <option>Python</option>
+        <option>Java</option>
+        <option>C++</option>
+        <option>TypeScript</option>
+      </select>
+    </div>
+
+    <!-- Textarea for code -->
+    <div class="mb-4">
+      <label for="code" class="block text-sm font-medium text-gray-700 mb-1">Paste Your Code</label>
+      <textarea id="code" rows="8" placeholder="Paste your code here for review..."
+        class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 font-mono"></textarea>
+    </div>
+
+    <!-- File Upload -->
+    <div class="mb-6">
+      <label class="block text-sm font-medium text-gray-700 mb-1">Or Upload a File</label>
+      <div class="flex items-center justify-center w-full">
+        <label for="fileUpload" class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 border-gray-300 transition">
+          <div class="flex flex-col items-center justify-center pt-5 pb-6">
+            <svg class="w-8 h-8 mb-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 8v4m0 0h4m-4 0H9" />
+            </svg>
+            <p class="text-sm text-gray-500"><span class="font-semibold">Click to upload</span> or drag & drop</p>
+            <p class="text-xs text-gray-400">.js, .py, .java, .txt, etc.</p>
+          </div>
+          <input id="fileUpload" type="file" class="hidden" />
+        </label>
+      </div>
+      <p id="fileName" class="mt-2 text-sm text-gray-600 italic"></p>
+    </div>
+
+    <!-- Submit Button -->
+    <button id="reviewBtn"
+      class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg flex justify-center items-center gap-2 font-medium transition">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2 2 2m-2-2v6m0-6l-2-2 2-2m0 0l2 2-2 2" />
+      </svg>
+      Review Code
+    </button>
+
+    <!-- Output -->
+    <div id="output" class="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4 font-mono text-sm text-gray-800 overflow-auto max-h-64 hidden"></div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('fileUpload');
+    const fileNameDisplay = document.getElementById('fileName');
+    const codeTextarea = document.getElementById('code');
+    const reviewBtn = document.getElementById('reviewBtn');
+    const outputDiv = document.getElementById('output');
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (file) {
+        fileNameDisplay.textContent = `Selected: ${file.name}`;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          codeTextarea.value = e.target.result;
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    reviewBtn.addEventListener('click', async () => {
+      const code = codeTextarea.value.trim();
+      const language = document.getElementById('language').value;
+      if (!code) {
+        alert("Please paste code or upload a file first.");
+        return;
+      }
+
+      outputDiv.classList.remove('hidden');
+      outputDiv.textContent = "🔍 Reviewing code...";
+
+      try {
+        const response = await fetch('http://localhost:5000/review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, language }),
+        });
+        const data = await response.json();
+        outputDiv.textContent = data.review || "No issues found.";
+      } catch (err) {
+        outputDiv.textContent = "❌ Error while reviewing: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>

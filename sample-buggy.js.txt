@@ -1,0 +1,35 @@
+// sample-buggy.js
+// A deliberately messy JS file to test the Code Review Assistant
+
+function getUserData(id) {
+    // ❌ No input validation
+    fetch('https://example.com/api/user/' + id)
+        .then(res => res.json())
+        .then(data => {
+            console.log("User data: ", data)
+        })
+        // ❌ Error handling missing
+}
+
+function calculate(a, b) {
+    // ❌ Unused variable
+    let temp = a + b;
+
+    if(a = b) { // ❌ Mistaken assignment instead of comparison
+        return a + b;
+    } else {
+        return a - b;
+    }
+}
+
+// ❌ Global variable polluting scope
+count = 0;
+
+for(let i=0; i<10; i++) {
+    count += i;
+    // ❌ Inefficient string concatenation in loop
+    let str = "";
+    str = str + i;
+}
+
+console.log("Final count:", count)

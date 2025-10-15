@@ -1,0 +1,68 @@
+* { box-sizing: border-box; }
+body {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+  color: #1e1e2f;
+  margin: 0;
+  padding: 2rem;
+}
+
+.container {
+  max-width: 900px;
+  margin: auto;
+}
+
+h1 {
+  margin: 0 0 1rem;
+  font-size: 1.8rem;
+}
+
+textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.status {
+  margin: 1rem 0;
+  font-size: 0.95rem;
+  color: #4f46e5;
+}
+
+.error {
+  margin: 1rem 0;
+  font-size: 0.95rem;
+  color: #dc2626;
+}
+
+.report-file {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  margin: 1rem 0;
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.issue {
+  border-left: 4px solid #6366f1;
+  padding: 0.5rem 0.75rem;
+  margin: 0.5rem 0;
+  background: #f1f5f9;
+  border-radius: 6px;
+}
+
+.issue.critical { border-left-color: #dc2626; }
+.issue.major { border-left-color: #f59e0b; }
+.issue.minor { border-left-color: #0ea5e9; }
+.issue.info { border-left-color: #16a34a; }
+
+.small {
+  opacity: 0.8;
+  font-size: 0.9rem;
+}
+
+.code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: #e2e8f0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
