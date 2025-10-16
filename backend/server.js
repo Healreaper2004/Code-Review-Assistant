@@ -30,9 +30,7 @@ const maxMb = Number(process.env.MAX_FILE_MB || 1);
 app.use(express.json({ limit: `${isNaN(maxMb) ? 1 : maxMb}mb` }));
 
 // ---- CORS (for local dev)
-const rawOrigins =
-  process.env.CORS_ORIGIN ||
-  "http://localhost:3000,http://localhost:5173,http://localhost:5500";
+const rawOrigins = process.env.CORS_ORIGIN || "";
 const allowedOrigins = rawOrigins
   .split(",")
   .map((o) => o.trim())
