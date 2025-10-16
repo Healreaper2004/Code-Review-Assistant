@@ -1,5 +1,9 @@
-
-const API_BASE = localStorage.getItem('apiBase') || '';  // '' => same origin
+// ✅ Auto-detect API base URL
+const API_BASE =
+  localStorage.getItem('apiBase') ||
+  (window.location.hostname.includes('onrender.com')
+    ? `https://${window.location.hostname}`
+    : '');
 
 const el = (id) => document.getElementById(id);
 const codeInput = el('code');
@@ -9,7 +13,7 @@ const fileNameDisplay = el('fileName');
 const reviewBtn = el('reviewBtn');
 const outputDiv = el('output');
 
-// 📁 Handle file selection and preview
+// 📁 File upload preview
 fileInput.addEventListener('change', () => {
   const file = fileInput.files[0];
   if (file) {
@@ -24,12 +28,13 @@ fileInput.addEventListener('change', () => {
   }
 });
 
-// 📝 Handle code review request
+// 📝 Review handler
 reviewBtn.addEventListener('click', async () => {
   const code = codeInput.value.trim();
   const language = languageSelect.value;
+  const file = fileInput.files[0];
 
-  if (!code) {
+  if (!code && !file) {
     alert('Please paste code or upload a file first.');
     return;
   }
@@ -39,44 +44,44 @@ reviewBtn.addEventListener('click', async () => {
   outputDiv.innerHTML = `<div class="status">🔍 Reviewing code…</div>`;
 
   try {
-    // ✅ Call the API on the same origin in prod; overrideable in dev
-    const url = `${API_BASE}/api/review`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, language }),
-    });
+    let response;
 
-    if (!res.ok) {
-      // Try to read text for better diagnostics
-      const errorText = await res.text();
-      throw new Error(`HTTP ${res.status}: ${errorText.slice(0, 160)}`);
+    if (file) {
+      const formData = new FormData();
+      formData.append('files', file);
+      formData.append('language', language);
+
+      response = await fetch(`${API_BASE}/api/review`, {
+        method: 'POST',
+        body: formData,
+      });
+    } else {
+      response = await fetch(`${API_BASE}/api/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, language }),
+      });
     }
 
-    // ✅ Safer JSON parsing (in case an HTML error page is returned)
-    let data;
-    try {
-      data = await res.json();
-    } catch {
-      const text = await res.text();
-      throw new Error(`Expected JSON but got: ${text.slice(0, 160)}...`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
     }
 
+    const data = await response.json();
     renderReport(data);
-  } catch (e) {
-    console.error(e);
-    outputDiv.innerHTML = `<div class="error">❌ Error: ${e.message}</div>`;
+  } catch (err) {
+    console.error(err);
+    outputDiv.innerHTML = `<div class="error text-red-600">❌ Error: ${err.message}</div>`;
   } finally {
     reviewBtn.disabled = false;
   }
 });
 
-// 🧾 Render report nicely
+// 🧾 Render result
 function renderReport(report) {
-  outputDiv.innerHTML = ''; // Clear previous
-  outputDiv.classList.remove('hidden');
+  outputDiv.innerHTML = '';
 
-  // Header summary
   const header = document.createElement('div');
   header.className = 'mb-4';
   header.innerHTML = `
@@ -89,7 +94,6 @@ function renderReport(report) {
     const fileContainer = document.createElement('div');
     fileContainer.className = 'bg-white shadow rounded-lg border border-gray-200 mb-4 p-4';
 
-    // File header
     const fileHeader = document.createElement('div');
     fileHeader.className = 'flex justify-between items-center cursor-pointer';
     fileHeader.innerHTML = `
@@ -109,13 +113,6 @@ function renderReport(report) {
     });
 
     file.issues.forEach(issue => {
-      const badgeColor = {
-        critical: 'bg-red-600',
-        major: 'bg-orange-500',
-        minor: 'bg-blue-500',
-        info: 'bg-green-600'
-      }[issue.severity] || 'bg-gray-500';
-
       const issueDiv = document.createElement('div');
       issueDiv.className = 'border-l-4 p-3 rounded bg-gray-50';
       issueDiv.style.borderLeftColor = getBadgeColor(issue.severity);
@@ -123,7 +120,7 @@ function renderReport(report) {
       issueDiv.innerHTML = `
         <div class="flex justify-between items-center mb-1">
           <span class="font-semibold">${escapeHtml(issue.title || '(No title)')}</span>
-          <span class="text-xs px-2 py-1 rounded text-white ${badgeColor}">
+          <span class="text-xs px-2 py-1 rounded text-white" style="background:${getBadgeColor(issue.severity)}">
             ${escapeHtml(issue.severity || 'info')}
           </span>
         </div>
@@ -154,8 +151,6 @@ function getBadgeColor(severity) {
   }
 }
 
-
-// 🔐 Escape HTML to prevent XSS
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({
     '&': '&amp;',

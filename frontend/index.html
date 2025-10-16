@@ -63,74 +63,10 @@
     </button>
 
     <!-- Output -->
-    <div id="output" class="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4 font-mono text-sm text-gray-800 overflow-auto max-h-64 hidden"></div>
+    <div id="output" class="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4 font-mono text-sm text-gray-800 overflow-auto max-h-96 hidden"></div>
   </div>
 
-  <script>
-    // ✅ Auto-detect API base URL
-    const API_BASE =
-      localStorage.getItem('apiBase') ||
-      (window.location.hostname.includes('onrender.com')
-        ? `https://${window.location.hostname}`
-        : '');
-
-    const fileInput = document.getElementById('fileUpload');
-    const fileNameDisplay = document.getElementById('fileName');
-    const codeTextarea = document.getElementById('code');
-    const reviewBtn = document.getElementById('reviewBtn');
-    const outputDiv = document.getElementById('output');
-
-    fileInput.addEventListener('change', () => {
-      const file = fileInput.files[0];
-      if (file) {
-        fileNameDisplay.textContent = `Selected: ${file.name}`;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          codeTextarea.value = e.target.result;
-        };
-        reader.readAsText(file);
-      }
-    });
-
-    reviewBtn.addEventListener('click', async () => {
-      const code = codeTextarea.value.trim();
-      const language = document.getElementById('language').value;
-      const file = fileInput.files[0];
-
-      outputDiv.classList.remove('hidden');
-      outputDiv.textContent = "🔍 Reviewing code...";
-
-      try {
-        let response;
-
-        if (file) {
-          // ✅ Send file with multipart/form-data
-          const formData = new FormData();
-          formData.append('files', file);
-          formData.append('language', language);
-
-          response = await fetch(`${API_BASE}/api/review`, {
-            method: 'POST',
-            body: formData,
-          });
-
-        } else {
-          // ✅ Fallback to JSON if no file
-          response = await fetch(`${API_BASE}/api/review`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code, language }),
-          });
-        }
-
-        const data = await response.json();
-        renderReport(data);
-
-      } catch (err) {
-        outputDiv.textContent = "❌ Error while reviewing: " + err.message;
-      }
-    });
-
-  </script>
+  <!-- ✅ External script -->
+  <script src="script.js"></script>
 </body>
 </html>
