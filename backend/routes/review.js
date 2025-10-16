@@ -55,13 +55,17 @@ router.post("/", reviewLimiter, upload.array("files"), async (req, res) => {
     }
 
     // ---- Case B: multipart files[] with optional prompt
+    // ---- Case B: multipart files[] with optional prompt
     if (files.length > 0) {
       for (const file of files) {
         const raw = file.buffer.toString("utf8");
+        if (!raw.trim()) continue;  // ✅ Skip empty files
+
         const content = truncateForLLM(
           promptInput ? `${promptInput}\n\n---\n\n${raw}` : raw
         );
-        const language = detectLanguage(file.originalname);
+
+        const language = detectLanguage(file.originalname) || "plaintext";
 
         const review = await reviewWithGemini({
           filename: file.originalname,
