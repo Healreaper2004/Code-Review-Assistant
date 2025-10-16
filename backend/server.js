@@ -82,9 +82,9 @@ app.use((err, req, res, _next) => {
   res.status(code).json(payload);
 });
 
-// ---- Start
-const PORT = Number(process.env.PORT) || 5000;
-app.listen(PORT, () => {
+// ---- Start server ONCE
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Backend listening on ${PORT}`);
   console.log(`   CORS allowed: ${allowedOrigins.join(", ")}`);
 });
