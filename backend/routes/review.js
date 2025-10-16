@@ -23,45 +23,63 @@ const upload = multer({
 });
 
 /**
- * Accept EITHER:
- *  - application/json  { "prompt": "..." }
- *  - multipart/form-data with one or more files (field name "files") and optional "prompt"
+ * Accept ANY of:
+ *  - JSON: { code, language?, filename?, prompt? }
+ *  - multipart/form-data: files[] (field "files") and optional "prompt"
+ *  - JSON: { prompt } only (virtual single review)
  */
 router.post("/", reviewLimiter, upload.array("files"), async (req, res) => {
   try {
-    const promptInput = (req.body?.prompt || "").toString().trim();
+    const isJson = req.is("application/json");
     const files = req.files || [];
-
-    if (!promptInput && files.length === 0) {
-      return res.status(400).json({ error: "Provide a prompt or upload at least one file." });
-    }
+    const promptInput = (req.body?.prompt || "").toString().trim();
 
     const reviews = [];
 
-    // If files are provided, review each file
+    // ---- Case A: JSON { code, language?, filename?, prompt? }
+    if (isJson && (req.body?.code ?? "").toString().trim()) {
+      const raw = (req.body.code || "").toString();
+      const language =
+        (req.body.language || "").toString().trim() ||
+        detectLanguage(req.body.filename || "pasted.txt");
+      const filename =
+        (req.body.filename || "").toString().trim() ||
+        `pasted-${language || "text"}.txt`;
+
+      const content = truncateForLLM(
+        promptInput ? `${promptInput}\n\n---\n\n${raw}` : raw
+      );
+
+      const review = await reviewWithGemini({
+        filename,
+        language,
+        content,
+      });
+
+      reviews.push(review);
+    }
+
+    // ---- Case B: multipart files[] with optional prompt
     if (files.length > 0) {
       for (const file of files) {
-        // file.buffer is a Buffer in memory
         const raw = file.buffer.toString("utf8");
-        const content = truncateForLLM(raw);
+        const content = truncateForLLM(
+          promptInput ? `${promptInput}\n\n---\n\n${raw}` : raw
+        );
         const language = detectLanguage(file.originalname);
 
-        // Backward-compatible call: your gemini client previously accepted an object
         const review = await reviewWithGemini({
           filename: file.originalname,
           language,
-          // prepend optional prompt if provided
-          content: promptInput
-            ? `${promptInput}\n\n---\n\n${content}`
-            : content,
+          content,
         });
 
         reviews.push(review);
       }
     }
 
-    // If only prompt is provided (no files), do a single "virtual file" review
-    if (files.length === 0 && promptInput) {
+    // ---- Case C: prompt only (virtual file)
+    if (reviews.length === 0 && promptInput) {
       const content = truncateForLLM(promptInput);
       const review = await reviewWithGemini({
         filename: "prompt.txt",
@@ -71,7 +89,17 @@ router.post("/", reviewLimiter, upload.array("files"), async (req, res) => {
       reviews.push(review);
     }
 
-    const totalIssues = reviews.reduce((acc, r) => acc + (r?.issues?.length || 0), 0);
+    // ---- Nothing provided
+    if (reviews.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "Provide {code} JSON, or upload file(s), or a prompt." });
+    }
+
+    const totalIssues = reviews.reduce(
+      (acc, r) => acc + (r?.issues?.length || 0),
+      0
+    );
 
     return res.json({
       report_id: `report_${Date.now()}`,
@@ -81,23 +109,29 @@ router.post("/", reviewLimiter, upload.array("files"), async (req, res) => {
     });
   } catch (err) {
     console.error("Review route error:", err);
-    return res.status(500).json({ error: "Review failed. Check server logs." });
+    return res
+      .status(500)
+      .json({ error: err.message || "Review failed. Check server logs." });
   }
 });
 
 router.get("/_models", async (_req, res) => {
   try {
     const key = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${key}`);
+    if (!key) return res.status(400).json({ error: "Missing API key" });
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1/models?key=${key}`
+    );
     const j = await r.json();
-    res.json((j.models || []).map(m => ({
-      name: (m.name || '').replace(/^models\//, ''),
-      methods: m.supportedGenerationMethods || []
-    })));
+    res.json(
+      (j.models || []).map((m) => ({
+        name: (m.name || "").replace(/^models\//, ""),
+        methods: m.supportedGenerationMethods || [],
+      }))
+    );
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
-
 
 export default router;
