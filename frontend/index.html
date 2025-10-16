@@ -67,6 +67,13 @@
   </div>
 
   <script>
+    // ✅ Auto-detect API base URL
+    const API_BASE =
+      localStorage.getItem('apiBase') ||
+      (window.location.hostname.includes('onrender.com')
+        ? `https://${window.location.hostname}`
+        : '');
+
     const fileInput = document.getElementById('fileUpload');
     const fileNameDisplay = document.getElementById('fileName');
     const codeTextarea = document.getElementById('code');
@@ -97,13 +104,19 @@
       outputDiv.textContent = "🔍 Reviewing code...";
 
       try {
-        const response = await fetch('http://localhost:5000/review', {
+        const response = await fetch(`${API_BASE}/api/review`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code, language }),
         });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
         const data = await response.json();
-        outputDiv.textContent = data.review || "No issues found.";
+        outputDiv.textContent = JSON.stringify(data, null, 2);
       } catch (err) {
         outputDiv.textContent = "❌ Error while reviewing: " + err.message;
       }
