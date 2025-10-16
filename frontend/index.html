@@ -95,32 +95,42 @@
     reviewBtn.addEventListener('click', async () => {
       const code = codeTextarea.value.trim();
       const language = document.getElementById('language').value;
-      if (!code) {
-        alert("Please paste code or upload a file first.");
-        return;
-      }
+      const file = fileInput.files[0];
 
       outputDiv.classList.remove('hidden');
       outputDiv.textContent = "🔍 Reviewing code...";
 
       try {
-        const response = await fetch(`${API_BASE}/api/review`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code, language }),
-        });
+        let response;
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        if (file) {
+          // ✅ Send file with multipart/form-data
+          const formData = new FormData();
+          formData.append('files', file);
+          formData.append('language', language);
+
+          response = await fetch(`${API_BASE}/api/review`, {
+            method: 'POST',
+            body: formData,
+          });
+
+        } else {
+          // ✅ Fallback to JSON if no file
+          response = await fetch(`${API_BASE}/api/review`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, language }),
+          });
         }
 
         const data = await response.json();
-        outputDiv.textContent = JSON.stringify(data, null, 2);
+        renderReport(data);
+
       } catch (err) {
         outputDiv.textContent = "❌ Error while reviewing: " + err.message;
       }
     });
+
   </script>
 </body>
 </html>

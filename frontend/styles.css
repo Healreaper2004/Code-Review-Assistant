@@ -66,3 +66,24 @@ textarea {
   padding: 0.25rem 0.5rem;
   border-radius: 6px;
 }
+
+#output {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9rem;
+}
+
+
+#output h2 {
+  font-size: 1.1rem;
+}
+
+#output .border-l-4 {
+  border-left-width: 4px;
+}

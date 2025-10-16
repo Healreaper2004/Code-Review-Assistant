@@ -73,51 +73,87 @@ reviewBtn.addEventListener('click', async () => {
 
 // 🧾 Render report nicely
 function renderReport(report) {
-  outputDiv.innerHTML = '';
+  outputDiv.innerHTML = ''; // Clear previous
+  outputDiv.classList.remove('hidden');
 
+  // Header summary
   const header = document.createElement('div');
+  header.className = 'mb-4';
   header.innerHTML = `
-    <h2 class="text-lg font-semibold mb-2">Result</h2>
-    <div class="small">${escapeHtml(report.summary || '')}</div>
+    <h2 class="text-lg font-semibold mb-2 text-indigo-600">📋 Code Review Result</h2>
+    <div class="text-gray-700 text-sm">${escapeHtml(report.summary || '')}</div>
   `;
   outputDiv.appendChild(header);
 
-  (report.files || []).forEach((f) => {
-    const fileDiv = document.createElement('div');
-    fileDiv.className = 'report-file';
-    fileDiv.innerHTML = `
-      <div class="mb-1">
-        <strong>${escapeHtml(f.file_path || 'Uploaded Code')}</strong>
-        <span class="small">(${escapeHtml(f.language || 'Unknown')})</span>
+  (report.files || []).forEach(file => {
+    const fileContainer = document.createElement('div');
+    fileContainer.className = 'bg-white shadow rounded-lg border border-gray-200 mb-4 p-4';
+
+    // File header
+    const fileHeader = document.createElement('div');
+    fileHeader.className = 'flex justify-between items-center cursor-pointer';
+    fileHeader.innerHTML = `
+      <div>
+        <strong class="text-gray-800">${escapeHtml(file.file_path)}</strong>
+        <span class="ml-2 text-sm text-gray-500">(${escapeHtml(file.language)})</span>
       </div>
-      <div class="small mb-2">${escapeHtml(f.summary || '')}</div>
+      <span class="text-indigo-600 text-sm">${file.issues.length} issue(s)</span>
     `;
 
-    const list = document.createElement('div');
-    (f.issues || []).forEach((issue) => {
-      const div = document.createElement('div');
-      div.className = `issue ${issue.severity || ''}`;
-      const lines = [issue.line_start, issue.line_end]
-        .filter(n => Number.isInteger(n))
-        .join('–');
+    const issuesList = document.createElement('div');
+    issuesList.className = 'mt-3 space-y-3';
+    issuesList.style.display = 'block';
 
-      div.innerHTML = `
-        <div><strong>[${escapeHtml(issue.severity || 'info')}] ${escapeHtml(issue.title || '')}</strong></div>
-        <div class="small">${lines ? `Lines: <span class="code">${lines}</span>` : ''}</div>
-        <div>${escapeHtml(issue.details || '')}</div>
-        <div class="small"><em>Suggestion:</em> ${escapeHtml(issue.suggestion || '')}</div>
-      `;
-      list.appendChild(div);
+    fileHeader.addEventListener('click', () => {
+      issuesList.style.display = issuesList.style.display === 'none' ? 'block' : 'none';
     });
 
-    fileDiv.appendChild(list);
-    outputDiv.appendChild(fileDiv);
+    file.issues.forEach(issue => {
+      const badgeColor = {
+        critical: 'bg-red-600',
+        major: 'bg-orange-500',
+        minor: 'bg-blue-500',
+        info: 'bg-green-600'
+      }[issue.severity] || 'bg-gray-500';
+
+      const issueDiv = document.createElement('div');
+      issueDiv.className = 'border-l-4 p-3 rounded bg-gray-50';
+      issueDiv.style.borderLeftColor = getBadgeColor(issue.severity);
+
+      issueDiv.innerHTML = `
+        <div class="flex justify-between items-center mb-1">
+          <span class="font-semibold">${escapeHtml(issue.title || '(No title)')}</span>
+          <span class="text-xs px-2 py-1 rounded text-white ${badgeColor}">
+            ${escapeHtml(issue.severity || 'info')}
+          </span>
+        </div>
+        <div class="text-sm text-gray-700 mb-1">${escapeHtml(issue.details || '')}</div>
+        <div class="text-sm text-gray-500 italic mb-1">Suggestion: ${escapeHtml(issue.suggestion || '')}</div>
+        ${issue.line_start ? `<div class="text-xs text-gray-400">Lines: ${issue.line_start}${issue.line_end && issue.line_end !== issue.line_start ? '–' + issue.line_end : ''}</div>` : ''}
+      `;
+      issuesList.appendChild(issueDiv);
+    });
+
+    fileContainer.appendChild(fileHeader);
+    fileContainer.appendChild(issuesList);
+    outputDiv.appendChild(fileContainer);
   });
 
   if ((report.files || []).length === 0) {
-    outputDiv.innerHTML = `<div class="status">✅ No issues found.</div>`;
+    outputDiv.innerHTML = `<div class="text-green-600 font-medium">✅ No issues found.</div>`;
   }
 }
+
+function getBadgeColor(severity) {
+  switch (severity) {
+    case 'critical': return '#dc2626';
+    case 'major': return '#f59e0b';
+    case 'minor': return '#0ea5e9';
+    case 'info': return '#16a34a';
+    default: return '#6b7280';
+  }
+}
+
 
 // 🔐 Escape HTML to prevent XSS
 function escapeHtml(str) {
