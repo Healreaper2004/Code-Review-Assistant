@@ -15,7 +15,7 @@ const PREFERRED = [
   "gemini-2.5-flash",
   "gemini-1.5-pro-002",
   "gemini-1.5-pro",
-  "gemini-1.5-flash"
+  "gemini-1.5-flash",
 ];
 
 let RESOLVED_MODEL = null;
@@ -32,7 +32,7 @@ async function listModelsV1() {
   const j = await r.json();
   return (j.models || []).map((m) => ({
     name: (m.name || "").replace(/^models\//, ""),
-    methods: m.supportedGenerationMethods || []
+    methods: m.supportedGenerationMethods || [],
   }));
 }
 
@@ -72,20 +72,31 @@ async function resolveModel() {
   }
 
   const names = models.map((m) => `${m.name} [${m.methods.join(",")}]`);
-  throw new Error(`No compatible Gemini model found for this API key. Available:\n${names.join("\n")}`);
+  throw new Error(
+    `No compatible Gemini model found for this API key. Available:\n${names.join("\n")}`
+  );
 }
 
 // ---- Extract JSON helper ----
 function extractJson(text) {
   if (!text) return null;
+  // ```json fenced block
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fenced?.[1]) {
-    try { return JSON.parse(fenced[1]); } catch {}
+    try {
+      return JSON.parse(fenced[1]);
+    } catch {}
   }
-  try { return JSON.parse(text); } catch {}
+  // Full JSON
+  try {
+    return JSON.parse(text);
+  } catch {}
+  // JSON from last brace block
   const brace = text.match(/\{[\s\S]*\}$/);
   if (brace) {
-    try { return JSON.parse(brace[0]); } catch {}
+    try {
+      return JSON.parse(brace[0]);
+    } catch {}
   }
   return null;
 }
@@ -101,13 +112,16 @@ function normalizeIssue(o) {
     medium: "minor",
     minor: "minor",
     low: "info",
-    info: "info"
+    info: "info",
   };
   return { ...o, severity: map[sev] || "info" };
 }
 
 // ---- Main review function ----
 export async function reviewWithGemini({ filename, language, content }) {
+  console.log("🚀 [Gemini] BYPASS_LLM =", BYPASS_LLM);
+  console.log("🚀 [Gemini] API_KEY present =", !!API_KEY);
+
   // ✅ BYPASS_LLM mode for testing (no external calls)
   if (BYPASS_LLM) {
     return {
@@ -121,9 +135,9 @@ export async function reviewWithGemini({ filename, language, content }) {
           details: "This is a placeholder issue to verify that the pipeline works end-to-end.",
           suggestion: "Set BYPASS_LLM=0 in the environment to enable real Gemini calls.",
           line_start: 1,
-          line_end: 1
-        }
-      ]
+          line_end: 1,
+        },
+      ],
     };
   }
 
@@ -132,7 +146,8 @@ export async function reviewWithGemini({ filename, language, content }) {
     return {
       file_path: filename,
       language,
-      summary: "Processed in MOCK mode (no GEMINI_API_KEY). Connect a real key to enable LLM review.",
+      summary:
+        "Processed in MOCK mode (no GEMINI_API_KEY). Connect a real key to enable LLM review.",
       issues: [
         {
           severity: "minor",
@@ -140,9 +155,9 @@ export async function reviewWithGemini({ filename, language, content }) {
           details: "Use strict equality (===) to avoid type coercion bugs.",
           suggestion: "Replace == with === where appropriate.",
           line_start: 1,
-          line_end: 1
-        }
-      ]
+          line_end: 1,
+        },
+      ],
     };
   }
 
@@ -164,27 +179,28 @@ Respond in compact JSON:
         role: "user",
         parts: [
           { text: system },
-          { text: `File: ${filename}\nLanguage: ${language}\n\n<CODE>\n${content}\n</CODE>` }
-        ]
-      }
+          { text: `File: ${filename}\nLanguage: ${language}\n\n<CODE>\n${content}\n</CODE>` },
+        ],
+      },
     ],
-    generationConfig: { temperature: 0, topP: 0.1, topK: 1, maxOutputTokens: 2048 }
+    generationConfig: { temperature: 0, topP: 0.1, topK: 1, maxOutputTokens: 2048 },
   };
 
   const r = await fetch(V1_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
   });
 
   if (!r.ok) {
     const errText = await r.text().catch(() => "");
+    console.error(`❌ Gemini API error [${r.status}]:`, errText);
     if (r.status === 404) RESOLVED_MODEL = null; // retry model resolve next call
     return {
       file_path: filename,
       language,
       summary: `LLM error: HTTP ${r.status}. ${errText || "No details."}`,
-      issues: []
+      issues: [],
     };
   }
 
@@ -197,5 +213,10 @@ Respond in compact JSON:
     return parsed;
   }
 
-  return { file_path: filename, language, summary: text || "No content returned.", issues: [] };
+  return {
+    file_path: filename,
+    language,
+    summary: text || "No content returned.",
+    issues: [],
+  };
 }
