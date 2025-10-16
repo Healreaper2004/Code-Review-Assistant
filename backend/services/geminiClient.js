@@ -1,10 +1,13 @@
-// Robust Gemini client with safe fallback
+// backend/services/geminiClient.js
+// ✅ Robust Gemini client with BYPASS_LLM and safe fallbacks
+
 import dotenv from "dotenv";
 dotenv.config();
 
 const API_KEY = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
 const FAIL_ON_MISSING_KEY = String(process.env.FAIL_ON_MISSING_KEY || "").toLowerCase() === "true";
 const ENV_MODEL = (process.env.GEMINI_MODEL || "").trim();
+const BYPASS_LLM = String(process.env.BYPASS_LLM || "0") === "1";
 
 // Preferred models in order
 const PREFERRED = [
@@ -17,6 +20,7 @@ const PREFERRED = [
 
 let RESOLVED_MODEL = null;
 
+// ---- List models from Gemini API ----
 async function listModelsV1() {
   if (!API_KEY) throw new Error("Missing API key for listModels");
   const url = `https://generativelanguage.googleapis.com/v1/models?key=${API_KEY}`;
@@ -32,6 +36,7 @@ async function listModelsV1() {
   }));
 }
 
+// ---- Resolve model ----
 async function resolveModel() {
   if (RESOLVED_MODEL) return RESOLVED_MODEL;
 
@@ -42,46 +47,87 @@ async function resolveModel() {
   }
 
   const models = await listModelsV1();
-  const supportsGen = (name) => models.some(m => m.name === name && m.methods.includes("generateContent"));
+  const supportsGen = (name) =>
+    models.some((m) => m.name === name && m.methods.includes("generateContent"));
 
+  // 1) ENV model if supported
   if (ENV_MODEL && supportsGen(ENV_MODEL)) {
     RESOLVED_MODEL = ENV_MODEL;
     return RESOLVED_MODEL;
   }
+
+  // 2) Preferred list
   for (const want of PREFERRED) {
     if (supportsGen(want)) {
       RESOLVED_MODEL = want;
       return RESOLVED_MODEL;
     }
   }
+
+  // 3) Any model that supports generation
   const any = models.find((m) => m.methods.includes("generateContent"));
   if (any) {
     RESOLVED_MODEL = any.name;
     return RESOLVED_MODEL;
   }
+
   const names = models.map((m) => `${m.name} [${m.methods.join(",")}]`);
   throw new Error(`No compatible Gemini model found for this API key. Available:\n${names.join("\n")}`);
 }
 
+// ---- Extract JSON helper ----
 function extractJson(text) {
   if (!text) return null;
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenced?.[1]) { try { return JSON.parse(fenced[1]); } catch {} }
+  if (fenced?.[1]) {
+    try { return JSON.parse(fenced[1]); } catch {}
+  }
   try { return JSON.parse(text); } catch {}
   const brace = text.match(/\{[\s\S]*\}$/);
-  if (brace) { try { return JSON.parse(brace[0]); } catch {} }
+  if (brace) {
+    try { return JSON.parse(brace[0]); } catch {}
+  }
   return null;
 }
 
+// ---- Normalize issue severity ----
 function normalizeIssue(o) {
   if (!o || typeof o !== "object") return o;
   const sev = String(o.severity || "").toLowerCase();
-  const map = { critical: "critical", high: "major", major: "major", medium: "minor", minor: "minor", low: "info", info: "info" };
+  const map = {
+    critical: "critical",
+    high: "major",
+    major: "major",
+    medium: "minor",
+    minor: "minor",
+    low: "info",
+    info: "info"
+  };
   return { ...o, severity: map[sev] || "info" };
 }
 
+// ---- Main review function ----
 export async function reviewWithGemini({ filename, language, content }) {
-  // MOCK mode if no key
+  // ✅ BYPASS_LLM mode for testing (no external calls)
+  if (BYPASS_LLM) {
+    return {
+      file_path: filename,
+      language,
+      summary: "Mock review: BYPASS_LLM is enabled. No real Gemini call was made.",
+      issues: [
+        {
+          severity: "info",
+          title: "Example mock issue",
+          details: "This is a placeholder issue to verify that the pipeline works end-to-end.",
+          suggestion: "Set BYPASS_LLM=0 in the environment to enable real Gemini calls.",
+          line_start: 1,
+          line_end: 1
+        }
+      ]
+    };
+  }
+
+  // ✅ Mock mode if API key is missing but not forced to fail
   if (!API_KEY && !FAIL_ON_MISSING_KEY) {
     return {
       file_path: filename,
@@ -100,6 +146,7 @@ export async function reviewWithGemini({ filename, language, content }) {
     };
   }
 
+  // ✅ Real Gemini API call
   const model = await resolveModel();
   const V1_URL = `https://generativelanguage.googleapis.com/v1/models/${encodeURIComponent(
     model
@@ -133,7 +180,6 @@ Respond in compact JSON:
   if (!r.ok) {
     const errText = await r.text().catch(() => "");
     if (r.status === 404) RESOLVED_MODEL = null; // retry model resolve next call
-    // Fall back to text wrapping so the UI still shows something
     return {
       file_path: filename,
       language,

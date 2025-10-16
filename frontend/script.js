@@ -1,6 +1,4 @@
-// ✅ In production, use same-origin (backend serves the frontend)
-//    If you ever need to override locally, open DevTools and run:
-//    localStorage.setItem('apiBase', 'http://localhost:5000')
+
 const API_BASE = localStorage.getItem('apiBase') || '';  // '' => same origin
 
 const el = (id) => document.getElementById(id);
