@@ -20,15 +20,7 @@ app.set("trust proxy", 1);
 // ---- Security (CSP adjusted for static frontend assets)
 app.use(
   helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        fontSrc: ["'self'", "https:", "data:"],
-        imgSrc: ["'self'", "data:", "https:"],
-      },
-    },
+    contentSecurityPolicy: false, // ✅ Disable CSP entirely (or configure properly)
     crossOriginResourcePolicy: false,
   })
 );
