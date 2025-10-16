@@ -167,11 +167,34 @@ export async function reviewWithGemini({ filename, language, content }) {
     model
   )}:generateContent?key=${API_KEY}`;
 
-  const system = `You are a senior software engineer performing a precise code review.
-Focus on: correctness/bugs, security, performance, readability, modularity, dead code, and anti-patterns.
-Cite line ranges where relevant. Recommend concrete fixes.
-Respond in compact JSON:
-{ file_path, language, summary, issues: [{severity,title,details,suggestion,line_start,line_end}] }`;
+  const system = `
+    You are a senior software engineer performing a **comprehensive code review**.
+    Analyze the given code **thoroughly**, focusing on:
+    - ❌ Syntax errors and compilation issues
+    - ⚠️ Security vulnerabilities (e.g., SQL injection, hardcoded secrets, unsafe string operations)
+    - 🧠 Logic errors and potential bugs
+    - 🏗️ Design issues, anti-patterns, performance problems
+    - 🧹 Readability, maintainability, and code smells
+
+    Respond in **valid JSON only** with this format:
+    {
+      "file_path": "<filename>",
+      "language": "<language>",
+      "summary": "<short overall review>",
+      "issues": [
+        {
+          "severity": "critical|major|minor|info",
+          "title": "<short issue title>",
+          "details": "<explanation>",
+          "suggestion": "<clear actionable fix>",
+          "line_start": <number>,
+          "line_end": <number>
+        }
+      ]
+    }
+
+    Do not output markdown. Do not add explanations outside of the JSON.
+    `;
 
   const body = {
     contents: [
