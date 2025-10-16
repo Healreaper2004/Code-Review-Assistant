@@ -1,6 +1,7 @@
-// ✅ You can override this in DevTools if needed:
-// localStorage.setItem('apiBase', 'http://localhost:5000')
-const API_BASE = localStorage.getItem('apiBase') || 'http://localhost:5000';
+// ✅ In production, use same-origin (backend serves the frontend)
+//    If you ever need to override locally, open DevTools and run:
+//    localStorage.setItem('apiBase', 'http://localhost:5000')
+const API_BASE = localStorage.getItem('apiBase') || '';  // '' => same origin
 
 const el = (id) => document.getElementById(id);
 const codeInput = el('code');
@@ -40,24 +41,27 @@ reviewBtn.addEventListener('click', async () => {
   outputDiv.innerHTML = `<div class="status">🔍 Reviewing code…</div>`;
 
   try {
-    const res = await fetch(`${API_BASE}/review`, {
+    // ✅ Call the API on the same origin in prod; overrideable in dev
+    const url = `${API_BASE}/api/review`;
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, language }),
     });
 
     if (!res.ok) {
+      // Try to read text for better diagnostics
       const errorText = await res.text();
-      throw new Error(`HTTP ${res.status}: ${errorText.slice(0, 100)}`);
+      throw new Error(`HTTP ${res.status}: ${errorText.slice(0, 160)}`);
     }
 
-    // ✅ Safer JSON parsing to catch HTML error pages
+    // ✅ Safer JSON parsing (in case an HTML error page is returned)
     let data;
     try {
       data = await res.json();
-    } catch (jsonErr) {
+    } catch {
       const text = await res.text();
-      throw new Error(`Expected JSON but got: ${text.slice(0, 80)}...`);
+      throw new Error(`Expected JSON but got: ${text.slice(0, 160)}...`);
     }
 
     renderReport(data);
