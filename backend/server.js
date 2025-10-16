@@ -17,10 +17,18 @@ const __dirname = path.dirname(__filename);
 app.set("x-powered-by", false);
 app.set("trust proxy", 1);
 
-// ---- Security (tuned for local dev + static)
+// ---- Security (CSP adjusted for static frontend assets)
 app.use(
   helmet({
-    contentSecurityPolicy: process.env.NODE_ENV === "production" ? undefined : false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        fontSrc: ["'self'", "https:", "data:"],
+        imgSrc: ["'self'", "data:", "https:"],
+      },
+    },
     crossOriginResourcePolicy: false,
   })
 );
@@ -41,7 +49,7 @@ const allowedOrigins = rawOrigins
 app.use(
   cors({
     origin(origin, cb) {
-      if (!origin) return cb(null, true); // allow server-to-server
+      if (!origin) return cb(null, true); // allow same-origin and server-to-server
       if (allowedOrigins.includes(origin)) return cb(null, true);
       return cb(new Error(`CORS: Origin ${origin} is not allowed`));
     },
