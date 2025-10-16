@@ -13,7 +13,7 @@ const router = express.Router();
 const MAX_FILE_MB = Number(process.env.MAX_FILE_MB || 1);
 const MAX_FILES = Number(process.env.MAX_FILES || 20);
 
-// ---- Multer in-memory (so we can pass buffers to Gemini and avoid fs cleanup)
+// ---- Multer in-memory
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -50,12 +50,7 @@ router.post("/", reviewLimiter, upload.array("files"), async (req, res) => {
         promptInput ? `${promptInput}\n\n---\n\n${raw}` : raw
       );
 
-      const review = await reviewWithGemini({
-        filename,
-        language,
-        content,
-      });
-
+      const review = await reviewWithGemini({ filename, language, content });
       reviews.push(review);
     }
 
@@ -89,7 +84,6 @@ router.post("/", reviewLimiter, upload.array("files"), async (req, res) => {
       reviews.push(review);
     }
 
-    // ---- Nothing provided
     if (reviews.length === 0) {
       return res
         .status(400)
@@ -109,9 +103,7 @@ router.post("/", reviewLimiter, upload.array("files"), async (req, res) => {
     });
   } catch (err) {
     console.error("Review route error:", err);
-    return res
-      .status(500)
-      .json({ error: err.message || "Review failed. Check server logs." });
+    return res.status(500).json({ error: err.message || "Review failed. Check server logs." });
   }
 });
 
@@ -119,16 +111,12 @@ router.get("/_models", async (_req, res) => {
   try {
     const key = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
     if (!key) return res.status(400).json({ error: "Missing API key" });
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models?key=${key}`
-    );
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${key}`);
     const j = await r.json();
-    res.json(
-      (j.models || []).map((m) => ({
-        name: (m.name || "").replace(/^models\//, ""),
-        methods: m.supportedGenerationMethods || [],
-      }))
-    );
+    res.json((j.models || []).map(m => ({
+      name: (m.name || '').replace(/^models\//, ''),
+      methods: m.supportedGenerationMethods || []
+    })));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
